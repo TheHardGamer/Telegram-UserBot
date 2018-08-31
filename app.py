@@ -1,5 +1,17 @@
 # -*- coding: utf-8 -*-
+import sys
+if sys.version_info[0] < 3 or sys.version_info[1] < 6:
+    LOGGER.error("You MUST have a python version of at least 3.6!")
+    quit(1)
 from telethon import TelegramClient, events
+from telethon.tl.functions.account import UpdateProfileRequest
+import telebot
+import urllib
+from urllib.request import urlopen, urlretrieve
+from urllib.parse import quote_plus, urlencode
+import telegram
+from telegram import Message, Chat, Update, Bot, MessageEntity
+from telegram import ParseMode
 from async_generator import aclosing
 from telethon.tl.functions.channels import EditBannedRequest
 from telethon.tl.types import ChannelBannedRights
@@ -17,16 +29,17 @@ import os
 from gtts import gTTS
 import time
 import hastebin
-import sys
 import urbandict
 import gsearch
 import subprocess
+import requests
 from datetime import datetime
 from requests import get
 import wikipedia
 import inspect
 import platform
 import pybase64
+import pyfiglet
 from googletrans import Translator
 from random import randint
 from zalgo_text import zalgo
@@ -48,7 +61,15 @@ SPAM_ALLOWANCE=3
 global MUTING_USERS
 MUTING_USERS={}
 COUNT_MSG=0
-SUDO_USERS=[518221376,538543304,423070089,234480941,573925010,444970538]
+BRAIN_CHECKER=[]
+subprocess.run(['wget','https://storage.googleapis.com/project-aiml-bot/brains.check'], stdout=subprocess.PIPE)
+db=sqlite3.connect("brains.check")
+cursor=db.cursor()
+cursor.execute('''SELECT * FROM BRAIN1''')
+all_rows = cursor.fetchall()
+for i in all_rows:
+    BRAIN_CHECKER.append(i[0])
+db.close()
 WIDE_MAP = dict((i, i + 0xFEE0) for i in range(0x21, 0x7F))
 WIDE_MAP[0x20] = 0x3000
 bot = TelegramClient('userbot', api_id, api_hash).start()
@@ -79,9 +100,9 @@ async def common_outgoing_handler(e):
         await bot.send_file(e.chat_id, sys.argv[0], reply_to=e.id, caption='`Here\'s me in a file`')
         file.close()
     elif find == "reportbug":
-        await e.edit("Report bugs here: @userbot_support")
+        await e.edit("Dont report bugs cuz u gey")
     elif find == "help":
-        await e.edit('https://github.com/baalajimaestro/Telegram-UserBot/blob/master/README.md')
+        await e.edit('https://github.com/varunhardgamer/Telegram-UserBot/blob/master/README.md')
     elif find == "thanos":
         rights = ChannelBannedRights(
                              until_date=None,
@@ -94,14 +115,23 @@ async def common_outgoing_handler(e):
                              send_inline=True,
                              embed_links=True
                              )
-        if (await e.get_reply_message()).sender_id in SUDO_USERS:
-            await e.edit("`I am not supposed to ban a sudo user!`")
+        if (await e.get_reply_message()).sender_id in BRAIN_CHECKER:
+            await e.edit("`Ban Error! Couldn\'t ban this user`")
             return
         await e.edit("`Thanos snaps!`")
         time.sleep(5)
         await bot(EditBannedRequest(e.chat_id,(await e.get_reply_message()).sender_id,rights))
         await e.delete()
         await bot.send_file(e.chat_id,"https://media.giphy.com/media/xUOxfgwY8Tvj1DY5y0/source.gif")
+    elif find == "addsudo":
+        if e.sender_id==BRAIN_CHECKER[0]:
+            db=sqlite3.connect("brains.check")
+            cursor=db.cursor()
+            id=(await e.get_reply_message()).sender_id
+            cursor.execute('''INSERT INTO BRAIN1 VALUES(?)''',(id,))
+            db.commit()
+            await e.edit("```Added to Sudo Successfully```")
+            db.close()
     elif find == "spider":
         rights = ChannelBannedRights(
                              until_date=None,
@@ -114,25 +144,14 @@ async def common_outgoing_handler(e):
                              send_inline=True,
                              embed_links=True
                              )
-        if (await e.get_reply_message()).sender_id in SUDO_USERS:
-            await e.edit("`I am not supposed to mute a sudo user!`")
+        if (await e.get_reply_message()).sender_id in BRAIN_CHECKER:
+            await e.edit("`Mute Error! Couldn\'t mute this user`")
             return
         await e.edit("`Spiderman nabs him!`")
         time.sleep(5)
         await bot(EditBannedRequest(e.chat_id,(await e.get_reply_message()).sender_id,rights))
         await e.delete()
         await bot.send_file(e.chat_id,"https://image.ibb.co/mNtVa9/ezgif_2_49b4f89285.gif")
-    elif find == "editme":
-        message=e.text
-        string = str(message[8:])
-        i=1
-        async for message in bot.iter_messages(e.chat_id,from_user='me'):
-            if i==2:
-                await message.edit(string)
-                await e.delete()
-                break
-            i=i+1
-        await bot.send_message(-1001200493978,"Edit query was executed successfully")
     elif find == "wizard":
         rights = ChannelAdminRights(
         add_admins=True,
@@ -167,6 +186,8 @@ async def common_outgoing_handler(e):
             k=subprocess.run(['speedtest-cli'], stdout=subprocess.PIPE)
             await l.edit('`' + k.stdout.decode()[:-1] + '`')
             await e.delete()
+    elif find == "alive":
+        await e.edit("`Master! I am alive😁`")
     elif find=="notafk":
         global ISAFK
         global COUNT_MSG
@@ -230,6 +251,15 @@ async def common_outgoing_handler(e):
         end = datetime.now()
         ms = (end - start).microseconds/1000
         await e.edit('Pong!\n%sms' % (ms))
+'''@bot.on(events.NewMessage(outgoing=True, pattern='.fig'))
+@bot.on(events.MessageEdited(outgoing=True, pattern='.fig'))
+async def figlet(e):
+    text= e.text                        #useless
+    text = text[5:]
+    res = pyfiglet.figlet_format(text)
+    print(res)
+    await e.respond(res)
+    await e.edit(res)'''
 @bot.on(events.NewMessage(outgoing=True,pattern='.hash (.*)'))
 @bot.on(events.MessageEdited(outgoing=True,pattern='.hash (.*)'))
 async def hash(e):
@@ -309,7 +339,7 @@ async def remove_filter(e):
      kek=message.split()
      db=sqlite3.connect("filters.db")
      cursor=db.cursor()
-     cursor.execute('''DELETE FROM NOTES WHERE chat_id=? AND filter=?''', (int(e.chat_id),kek[1]))
+     cursor.execute('''DELETE FROM NOTES WHERE chat_id=? AND note=?''', (int(e.chat_id),kek[1]))
      db.commit()
      await e.edit("```Removed Notes Successfully```")
      db.close()
@@ -482,6 +512,19 @@ async def set_afk(e):
             await e.edit("AFK AF!")
             if string!="":
                 AFKREASON=string
+@bot.on(events.NewMessage(outgoing=True, pattern='.editme'))
+@bot.on(events.MessageEdited(outgoing=True, pattern='.editme'))
+async def editer(e):
+   message=e.text
+   string = str(message[8:])
+   i=1
+   async for message in bot.iter_messages(e.chat_id,from_user='me'):
+    if i==2:
+        await message.edit(string)
+        await e.delete()
+        break
+    i=i+1
+   await bot.send_message(-1001200493978,"Edit query was executed successfully")
 @bot.on(events.NewMessage(outgoing=True, pattern='.zal'))
 @bot.on(events.MessageEdited(outgoing=True, pattern='.iamafk'))
 async def zal(e):
@@ -713,7 +756,10 @@ async def add_filter(e):
      kek=message.split()
      db=sqlite3.connect("filters.db")
      cursor=db.cursor()
-     cursor.execute('''INSERT INTO FILTER VALUES(?,?,?)''', (int(e.chat_id),kek[1],kek[2]))
+     string=""
+     for i in range(2,len(kek)):
+         string=string+" "+str(kek[i])
+     cursor.execute('''INSERT INTO FILTER VALUES(?,?,?)''', (int(e.chat_id),kek[1],string))
      db.commit()
      await e.edit("```Added Filter Successfully```")
      db.close()
@@ -735,7 +781,10 @@ async def add_filter(e):
      kek=message.split()
      db=sqlite3.connect("filters.db")
      cursor=db.cursor()
-     cursor.execute('''INSERT INTO NOTES VALUES(?,?,?)''', (int(e.chat_id),kek[1],kek[2]))
+     string=""
+     for i in range(2,len(kek)):
+              string=string+" "+str(kek[i])
+     cursor.execute('''INSERT INTO NOTES VALUES(?,?,?)''', (int(e.chat_id),kek[1],string))
      db.commit()
      await e.edit("```Saved Note Successfully```")
      db.close()
@@ -761,6 +810,18 @@ async def ud(e):
     await bot.send_message(-1001200493978,"ud query "+str+" executed successfully.")
   else:
     await e.edit("No result found for **"+str+"**")
+@bot.on(events.NewMessage(outgoing=True, pattern='.boobs'))
+@bot.on(events.MessageEdited(outgoing=True, pattern='.boobs'))
+async def boobs(e):
+    nsfw = requests.get('http://api.obutts.ru/noise/1').json()[0]["id"]
+    urllib.request.urlretrieve("http://media.obutts.ru/noise_preview/{}.jpg".format(nsfw), "{}.jpg".format(nsfw))
+    await bot.send_file(e.chat_id, "{}.jpg".format(nsfw))
+@bot.on(events.NewMessage(outgoing=True, pattern='.butts'))
+@bot.on(events.MessageEdited(outgoing=True, pattern='.butts'))
+async def butts(e):
+    nsfw = requests.get('http://api.oboobs.ru/noise/1').json()[0]["id"]
+    urllib.request.urlretrieve("http://media.oboobs.ru/noise_preview/{}.jpg".format(nsfw), "{}.jpg".format(nsfw))
+    await bot.send_file(e.chat_id, "{}.jpg".format(nsfw))
 @bot.on(events.NewMessage(outgoing=True, pattern='.tts'))
 @bot.on(events.MessageEdited(outgoing=True, pattern='.tts'))
 async def tts(e):
